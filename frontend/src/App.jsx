@@ -156,6 +156,28 @@ async function loadOrders() {
     }
   }
 
+async function updateOrderStatus(orderId, status) {
+  try {
+    await api(`/orders/${orderId}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({ status }),
+    });
+    await loadOrders();
+  } catch (err) {
+    setError(err.message);
+  }
+}
+async function updateOrderStatus(orderId, status) {
+  try {
+    await api(`/orders/${orderId}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({ status }),
+    });
+    await loadOrders();
+  } catch (err) {
+    setError(err.message);
+  }
+}
   async function loadCustomerDashboard() {
     try {
       const data = await api("/dashboard/customer");
@@ -169,6 +191,7 @@ async function loadOrders() {
     try {
       const data = await api("/dashboard/admin");
       setAdminDashboard(data);
+await loadOrders();
     } catch (err) {
       setError(err.message);
     }
@@ -1242,7 +1265,25 @@ async function loadOrders() {
         {page === "admin-dashboard" && (
           <section className="dashboard">
             <h2>Admin Dashboard</h2>
-
+<div>
+  <h3>Order Management</h3>
+  {orders.map((order) => (
+    <div key={order.id}>
+      <strong>Order #{order.id}</strong>
+      {" — "}
+      <select
+        value={order.status || "Pending"}
+        onChange={(e) => updateOrderStatus(order.id, e.target.value)}
+      >
+        <option value="Pending">Pending</option>
+        <option value="Confirmed">Confirmed</option>
+        <option value="Shipped">Shipped</option>
+        <option value="Delivered">Delivered</option>
+        <option value="Cancelled">Cancelled</option>
+      </select>
+    </div>
+  ))}
+</div>
             {adminDashboard && (
               <>
                 <div className="dashboard-grid">
@@ -1339,7 +1380,33 @@ async function loadOrders() {
                 ? "Edit Product"
                 : "Add Product"}
             </h2>
+<div>
+  <h3>Order Management</h3>
 
+  {orders.length === 0 ? (
+    <p>No orders found.</p>
+  ) : (
+    orders.map((order) => (
+      <div key={order.id}>
+        <strong>Order #{order.id}</strong>
+        <span> — {order.status || "Pending"} </span>
+
+        {order.status !== "Cancelled" && order.status !== "Delivered" && (
+          <select
+            value={order.status || "Pending"}
+            onChange={(e) => updateOrderStatus(order.id, e.target.value)}
+          >
+            <option value="Pending">Pending</option>
+            <option value="Confirmed">Confirmed</option>
+            <option value="Shipped">Shipped</option>
+            <option value="Delivered">Delivered</option>
+            <option value="Cancelled">Cancelled</option>
+          </select>
+        )}
+      </div>
+    ))
+  )}
+</div>
             <form onSubmit={saveAdminProduct}>
               <input
                 type="text"
