@@ -121,3 +121,46 @@ router.patch("/:id/cancel", (req, res, next) => {
 });
 
 module.exports = router;
+
+router.patch('/:id/status', (req, res) => {
+  try {
+    if (!req.session.userId) {
+      return res.status(401).json({ error: 'Login required' });
+    }
+
+    const user = db.prepare('SELECT role FROM users WHERE id = ?').get(req.session.userId);
+
+    if (!user || user.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin only' });
+    }
+
+    const { status } = req.body;
+    const allowedStatuses = ['Pending', 'Confirmed', 'Shipped', 'Delivered', 'Cancelled'];
+
+    if (!allowedStatuses.includes(status)) {
+      return res.status(400).json({ error: 'Invalid order status' });
+    }
+
+    const order = db.prepare('SELECT id, status FROM orders WHERE id = ?').get(req.params.id);
+
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    if (order.status === 'Delivered' && status === 'Cancelled') {
+      return res.status(400).json({ error: 'Delivered orders cannot be cancelled' });
+    }
+
+    db.prepare(
+      "UPDATE orders SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?"
+    ).run(status, req.params.id);
+
+    const updatedOrder = db.prepare(
+      'SELECT id, status, total, created_at, updated_at FROM orders WHERE id = ?'
+    ).get(req.params.id);
+
+    res.json({ message: 'Order status updated successfully', order: updatedOrder });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
