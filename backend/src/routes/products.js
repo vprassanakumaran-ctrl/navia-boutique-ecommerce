@@ -82,3 +82,96 @@ router.get('/:id', (req, res, next) => {
 });
 
 module.exports = router;
+
+router.patch('/:id', (req, res) => {
+  try {
+    if (!req.session?.userId) {
+      return res.status(401).json({ error: { message: 'Login required.' } });
+    }
+
+    const user = db.prepare('SELECT role FROM users WHERE id = ?').get(req.session.userId);
+
+    if (!user || user.role !== 'admin') {
+      return res.status(403).json({ error: { message: 'Admin access required.' } });
+    }
+
+    const { name, description, price, category, image_url, stock } = req.body;
+
+    if (!name || !String(name).trim()) {
+      return res.status(400).json({ error: { message: 'Name is required.' } });
+    }
+
+    if (price === undefined || price === '' || Number(price) < 0) {
+      return res.status(400).json({ error: { message: 'Valid price is required.' } });
+    }
+
+    if (stock === undefined || stock === '' || Number(stock) < 0) {
+      return res.status(400).json({ error: { message: 'Valid stock is required.' } });
+    }
+
+    const result = db.prepare(`
+      UPDATE products
+      SET name = ?, description = ?, price = ?, category = ?,
+          image_url = ?, stock = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).run(
+      String(name).trim(),
+      description || '',
+      Number(price),
+      category || 'Men',
+      image_url || '',
+      Number(stock),
+      Number(req.params.id)
+    );
+
+    if (result.changes === 0) {
+      return res.status(404).json({ error: { message: 'Product not found.' } });
+    }
+
+    const product = db.prepare('SELECT * FROM products WHERE id = ?').get(Number(req.params.id));
+
+    res.json({ product });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.put('/:id', (req, res, next) => {
+  req.method = 'PATCH';
+  return router.handle(req, res, next);
+});
+
+router.post('/', async (req, res) => {
+  try {
+    if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
+
+    const user = db.prepare('SELECT role FROM users WHERE id = ?').get(req.session.userId);
+    if (!user || user.role !== 'admin') return res.status(403).json({ error: 'Admin only' });
+
+    const { name, image, price, category, stock, description } = req.body;
+
+    if (!name || price === undefined || !category || stock === undefined) {
+      return res.status(400).json({ error: 'Name, price, category and stock are required' });
+    }
+
+    if (Number(price) < 0 || Number(stock) < 0) {
+      return res.status(400).json({ error: 'Price and stock cannot be negative' });
+    }
+
+    const result = db.prepare(`
+      INSERT INTO products (name, image_url, price, category, stock, description)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(
+      name,
+      image || '/images/default-product.jpg',
+      Number(price),
+      category,
+      Number(stock),
+      description || ''
+    );
+
+    res.status(201).json({ message: 'Product added successfully', id: result.lastInsertRowid });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
