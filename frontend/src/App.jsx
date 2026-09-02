@@ -82,6 +82,8 @@ function App() {
     password: "",
   });
 
+  const [checkoutForm, setCheckoutForm] = useState({ name: "", mobile: "", address: "" });
+
   useEffect(() => {
     checkSession();
     loadProducts();
