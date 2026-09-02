@@ -63,7 +63,7 @@ The application considers:
 
 ## Documentation
 
-- `docs/requirements.md` — Requirement analysis
+- `docs/requirement-analysis.md` — Requirement analysis
 - `docs/business-rules.md` — Business rules and validations
 - `docs/assumptions.md` — Assumptions and ambiguous requirements
 - `docs/ai-prompts-review.md` — AI prompts and output review
