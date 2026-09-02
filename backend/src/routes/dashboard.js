@@ -54,7 +54,11 @@ router.get('/admin', (req, res, next) => {
       FROM orders
       WHERE status != 'Cancelled'
     `).get().revenue;
-
+const users = db.prepare(`
+  SELECT id, name, email, phone, address, role, created_at
+  FROM users
+  ORDER BY id DESC
+`).all();
     const lowStockProducts = db.prepare(`
       SELECT id, name, stock
       FROM products
@@ -67,6 +71,7 @@ router.get('/admin', (req, res, next) => {
       totalProducts,
       totalOrders,
       revenue,
+users,
       lowStockProducts
     });
   } catch (err) {

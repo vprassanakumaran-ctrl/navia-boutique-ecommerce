@@ -6,7 +6,7 @@ const { generateResetToken, hashToken } = require('../utils/tokens');
 
 const router = express.Router();
 
-const PUBLIC_USER_COLUMNS = 'id, name, email, role, phone, created_at';
+const PUBLIC_USER_COLUMNS = 'id, name, email, role, phone, address, created_at';
 
 function validationError(res, message, fields) {
     return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message, fields } });
@@ -18,8 +18,8 @@ function findUserByEmail(email) {
 
 function toPublicUser(row) {
     if (!row) return null;
-    const { id, name, email, role, phone, created_at } = row;
-    return { id, name, email, role, phone, created_at };
+    const { id, name, email, role, phone, address, created_at } = row;
+    return { id, name, email, role, phone, address, created_at };
 }
 
 // ---------------------------------------------------------------------------
@@ -27,7 +27,7 @@ function toPublicUser(row) {
 // ---------------------------------------------------------------------------
 router.post('/register', async (req, res, next) => {
     try {
-        const { name, email, password } = req.body || {};
+        const { name, email, password, address } = req.body || {};
         const fieldErrors = {};
 
         if (!isNonEmptyString(name)) fieldErrors.name = 'Name is required.';
@@ -156,7 +156,7 @@ router.put('/profile', (req, res, next) => {
       });
     }
 
-    const { name, phone } = req.body || {};
+    const { name, phone, address } = req.body || {};
     const trimmedName = typeof name === 'string' ? name.trim() : '';
     const trimmedPhone = typeof phone === 'string' ? phone.trim() : '';
 
@@ -169,12 +169,13 @@ router.put('/profile', (req, res, next) => {
     }
 
     const updateUser = db.prepare(
-      'UPDATE users SET name = ?, phone = ? WHERE id = ?'
+      'UPDATE users SET name = ?, phone = ?, address = ? WHERE id = ?'
     );
 
     updateUser.run(
       trimmedName,
       trimmedPhone || null,
+address || null,
       req.session.userId
     );
 

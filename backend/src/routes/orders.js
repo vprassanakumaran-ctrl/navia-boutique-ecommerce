@@ -9,7 +9,16 @@ router.use(requireAuth);
 // Get current user's orders
 router.get('/', (req, res, next) => {
   try {
-    const orders = db.prepare(`
+if (req.session.role === 'admin') {
+  const orders = db.prepare(`
+    SELECT id, user_id, status, total, created_at, updated_at
+    FROM orders
+    ORDER BY id DESC
+  `).all();
+
+  return res.json({ orders });
+}    
+const orders = db.prepare(`
       SELECT id, status, total, created_at, updated_at
       FROM orders
       WHERE user_id = ?
