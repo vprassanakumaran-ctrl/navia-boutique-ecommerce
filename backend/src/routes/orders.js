@@ -35,6 +35,11 @@ const orders = db.prepare(`
 router.post('/checkout', (req, res, next) => {
   try {
     const userId = req.session.userId;
+    const deliveryAddress = String(req.body?.deliveryAddress || '').trim();
+
+    if (!deliveryAddress) {
+      return res.status(400).json({ error: 'Delivery address is required.' });
+    }
 
     const cart = db.prepare(`
       SELECT
@@ -61,8 +66,8 @@ router.post('/checkout', (req, res, next) => {
     );
 
     const createOrder = db.prepare(`
-      INSERT INTO orders (user_id, status, total)
-      VALUES (?, 'Pending', ?)
+      INSERT INTO orders (user_id, status, total, delivery_address)
+      VALUES (?, 'Pending', ?, ?)
     `);
 
     const createItem = db.prepare(`
@@ -79,7 +84,7 @@ router.post('/checkout', (req, res, next) => {
     let orderId;
 
     db.transaction(() => {
-      const result = createOrder.run(userId, total);
+      const result = createOrder.run(userId, total, deliveryAddress);
       orderId = result.lastInsertRowid;
 
       for (const item of cart) {
