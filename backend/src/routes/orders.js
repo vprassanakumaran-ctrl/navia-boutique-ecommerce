@@ -11,10 +11,20 @@ router.get('/', (req, res, next) => {
   try {
 if (req.session.role === 'admin') {
   const orders = db.prepare(`
-    SELECT id, user_id, status, total, created_at, updated_at
-    FROM orders
-    ORDER BY id DESC
-  `).all();
+  SELECT
+    o.id,
+    o.user_id,
+    o.status,
+    o.total,
+    o.delivery_address,
+    o.created_at,
+    o.updated_at,
+    u.name AS customer_name,
+    u.phone AS customer_phone
+  FROM orders o
+  JOIN users u ON u.id = o.user_id
+  ORDER BY o.id DESC
+`).all();
 
   return res.json({ orders });
 }    

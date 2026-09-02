@@ -28,6 +28,7 @@ async function api(path, options = {}) {
 
 function App() {
   const [user, setUser] = useState(null);
+const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [page, setPage] = useState("home");
 
   const [products, setProducts] = useState([]);
@@ -352,6 +353,9 @@ await loadOrders();
     try {
       const data = await api("/orders/checkout", {
         method: "POST",
+body: JSON.stringify({
+  deliveryAddress: checkoutForm.address.trim(),
+}),
       });
 
       setCart([]);
@@ -1156,10 +1160,43 @@ await loadOrders();
 
                 <button
                   className="checkout"
-                  onClick={checkout}
+                  onClick={() => setCheckoutOpen(true)}
                 >
                   Checkout
                 </button>
+
+{checkoutOpen && (
+  <div className="checkout-form">
+    <h3>Checkout</h3>
+
+    <label>Name</label>
+    <input value={user?.name || ""} readOnly />
+
+    <label>Mobile Number</label>
+    <input value={user?.phone || ""} readOnly />
+
+    <label>Delivery Address</label>
+    <textarea
+      value={checkoutForm.address}
+      onChange={(e) =>
+        setCheckoutForm({
+          ...checkoutForm,
+          address: e.target.value,
+        })
+      }
+      placeholder="Enter delivery address"
+      rows="4"
+    />
+
+    <button
+      className="checkout"
+      onClick={checkout}
+      disabled={!checkoutForm.address.trim()}
+    >
+      Place Order
+    </button>
+  </div>
+)}
               </>
             )}
           </section>
@@ -1269,22 +1306,28 @@ await loadOrders();
             <h2>Admin Dashboard</h2>
 <div>
   <h3>Order Management</h3>
-  {orders.map((order) => (
-    <div key={order.id}>
-      <strong>Order #{order.id}</strong>
-      {" — "}
-      <select
-        value={order.status || "Pending"}
-        onChange={(e) => updateOrderStatus(order.id, e.target.value)}
-      >
-        <option value="Pending">Pending</option>
-        <option value="Confirmed">Confirmed</option>
-        <option value="Shipped">Shipped</option>
-        <option value="Delivered">Delivered</option>
-        <option value="Cancelled">Cancelled</option>
-      </select>
-    </div>
-  ))}
+        {orders.map((order) => (
+          <div key={order.id} className="order-card">
+            <h3>Order #{order.id}</h3>
+            <p><strong>Customer Name:</strong> {order.customer_name || "Not available"}</p>
+            <p><strong>Mobile:</strong> {order.customer_phone || "Not available"}</p>
+            <p><strong>Delivery Address:</strong> {order.delivery_address || "Not provided"}</p>
+            <p><strong>Total:</strong> ₹{order.total}</p>
+            <p>
+              <strong>Status:</strong>{" "}
+              <select
+                value={order.status || "Pending"}
+                onChange={(e) => updateOrderStatus(order.id, e.target.value)}
+              >
+                <option value="Pending">Pending</option>
+                <option value="Confirmed">Confirmed</option>
+                <option value="Shipped">Shipped</option>
+                <option value="Delivered">Delivered</option>
+                <option value="Cancelled">Cancelled</option>
+              </select>
+            </p>
+          </div>
+        ))}
 </div>
             {adminDashboard && (
               <>
