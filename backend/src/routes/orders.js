@@ -1,0 +1,123 @@
+const express = require('express');
+const router = express.Router();
+
+const db = require('../db');
+const requireAuth = require('../middleware/requireAuth');
+
+router.use(requireAuth);
+
+// Get current user's orders
+router.get('/', (req, res, next) => {
+  try {
+    const orders = db.prepare(`
+      SELECT id, status, total, created_at, updated_at
+      FROM orders
+      WHERE user_id = ?
+      ORDER BY id DESC
+    `).all(req.session.userId);
+
+    res.json({ orders });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Checkout current cart
+router.post('/checkout', (req, res, next) => {
+  try {
+    const userId = req.session.userId;
+
+    const cart = db.prepare(`
+      SELECT
+        ci.id,
+        ci.product_id,
+        ci.size_label,
+        ci.quantity,
+        p.price
+      FROM cart_items ci
+      JOIN products p ON p.id = ci.product_id
+      WHERE ci.user_id = ?
+      ORDER BY ci.id
+    `).all(userId);
+
+    if (cart.length === 0) {
+      return res.status(400).json({
+        error: { code: 'EMPTY_CART', message: 'Your cart is empty.' }
+      });
+    }
+
+    const total = cart.reduce(
+      (sum, item) => sum + Number(item.price) * item.quantity,
+      0
+    );
+
+    const createOrder = db.prepare(`
+      INSERT INTO orders (user_id, status, total)
+      VALUES (?, 'Pending', ?)
+    `);
+
+    const createItem = db.prepare(`
+      INSERT INTO order_items
+        (order_id, product_id, size_label, quantity, price_at_purchase)
+      VALUES (?, ?, ?, ?, ?)
+    `);
+
+    const clearCart = db.prepare(`
+      DELETE FROM cart_items
+      WHERE user_id = ?
+    `);
+
+    let orderId;
+
+    db.transaction(() => {
+      const result = createOrder.run(userId, total);
+      orderId = result.lastInsertRowid;
+
+      for (const item of cart) {
+        createItem.run(
+          orderId,
+          item.product_id,
+          item.size_label,
+          item.quantity,
+          item.price
+        );
+      }
+
+      clearCart.run(userId);
+    })();
+
+    const order = db.prepare(`
+      SELECT id, status, total, created_at, updated_at
+      FROM orders
+      WHERE id = ? AND user_id = ?
+    `).get(orderId, userId);
+
+    res.status(201).json({ order });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Cancel an order
+router.patch("/:id/cancel", (req, res, next) => {
+  try {
+    const result = db.prepare(`
+      UPDATE orders
+      SET status = 'Cancelled', updated_at = CURRENT_TIMESTAMP
+      WHERE id = ? AND user_id = ? AND status IN ('Pending', 'Confirmed')
+    `).run(req.params.id, req.session.userId);
+
+    if (result.changes === 0) {
+      const order = db.prepare("SELECT status FROM orders WHERE id = ? AND user_id = ?").get(req.params.id, req.session.userId);
+      if (!order) return res.status(404).json({ error: "Order not found" });
+      if (order.status === "Delivered") return res.status(400).json({ error: "Delivered orders cannot be cancelled" });
+      return res.status(400).json({ error: "This order cannot be cancelled" });
+    }
+
+    res.json({ message: "Order cancelled successfully" });
+  } catch (err) {
+    next(err);
+  }
+});
+
+module.exports = router;

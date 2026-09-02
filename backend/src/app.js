@@ -1,0 +1,64 @@
+const express = require('express');
+const cors = require('cors');
+const session = require('express-session');
+
+const authRoutes = require('./routes/auth');
+
+const app = express();
+
+// The frontend (Vite dev server) and backend run on different ports, which
+// makes them different origins even though both are "localhost" — cors()
+// with credentials:true is required so the session cookie can be sent, and
+// the frontend must fetch with { credentials: 'include' } to match.
+app.use(
+    cors({
+        origin: process.env.FRONTEND_ORIGIN || 'http://localhost:5173',
+        credentials: true,
+    })
+);
+
+app.use(express.json());
+
+app.use(
+    session({
+        name: 'navia.sid',
+        secret: process.env.SESSION_SECRET || 'dev-only-secret-change-me',
+        resave: false,
+        saveUninitialized: false,
+        cookie: {
+            httpOnly: true, // not readable by client-side JS — see architecture Section 6
+            sameSite: 'lax',
+            secure: false, // set true once served over HTTPS
+            maxAge: 1000 * 60 * 60 * 8, // 8 hours
+        },
+    })
+);
+
+app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
+
+app.use('/api/auth', authRoutes);
+const dashboardRoutes = require('./routes/dashboard');
+app.use('/api/dashboard', dashboardRoutes);
+
+// 404 for anything unmatched under /api
+const productRoutes = require('./routes/products');
+const cartRoutes = require('./routes/cart');
+const orderRoutes = require('./routes/orders');
+
+app.use('/api/products', productRoutes);
+app.use('/api/cart', cartRoutes);
+app.use('/api/orders', orderRoutes);
+app.use((req, res) => {
+    res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Route not found.' } });
+});
+
+// Centralized error handler — anything passed to next(err) lands here so
+// error responses stay in the { error: { code, message } } shape everywhere.
+// eslint-disable-next-line no-unused-vars
+app.use((err, req, res, next) => {
+    console.error(err);
+    res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Something went wrong.' } });
+});
+
+module.exports = app;
+
